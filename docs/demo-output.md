@@ -1,6 +1,6 @@
 # Real demo command captures
 
-Synthetic data. Captured 30 October 2026. Amount columns ending in cents are integer minor units.
+Synthetic data. Captured 30 October 2026. Human-readable monetary columns show decimal units. The currency column identifies NZD. JSON fields ending in _cents retain integer minor units.
 
 ## Source controls
 
