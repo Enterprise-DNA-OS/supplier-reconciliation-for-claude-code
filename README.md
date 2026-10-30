@@ -1,115 +1,104 @@
-<h1 align="center">Supplier Reconciliation for Claude Code</h1>
+# Supplier Reconciliation for Claude Code
 
-<p align="center">
-  <strong>The open-source supplier reconciliation desk that is just a database and Claude Code.</strong>
-</p>
+Your supplier statements, ledger snapshots and discrepancy reviews in one database you own. Free and open source, MIT. Created by Enterprise DNA. Works with Claude Code, Codex, OpenCode or Cursor.
 
-<p align="center">
-  Created by <a href="https://www.enterprisedna.co"><strong>Enterprise DNA</strong></a>. Free and open source. Works with Claude Code, Codex, OpenCode or Cursor.
-</p>
+| Do it yourself | We customise it | We run it for you |
+|---|---|---|
+| Install the free version and run your own desk. | Your supplier formats, matching rules, fields and records brought across. | Installed, connected and operated inside Omni by Enterprise DNA. |
+| [Quick start](#quick-start) | [Get your version built](https://enterprisedna.co/omni/book/?offer=replace-software&utm_campaign=ap-accurate&utm_medium=readme) | [Setup fee, then retainer](https://enterprisedna.co/omni/book/?offer=replace-software&utm_campaign=ap-accurate&utm_medium=readme) |
 
-<!-- three-doors -->
-<table align="center">
-  <tr>
-    <td align="center"><strong>Do it yourself</strong><br/>Clone it, run it, own it. Free, MIT.<br/><a href="#quick-start">Quick start</a></td>
-    <td align="center"><strong>We customise it</strong><br/>Your fields, your rules, your AP Accurate data brought across.<br/><a href="https://enterprisedna.co/omni/book/?utm_source=github&utm_medium=readme&utm_campaign=ap-accurate">Book a call</a></td>
-    <td align="center"><strong>We run it for you</strong><br/>Installed, connected and operated inside Omni. Setup fee, then a retainer.<br/><a href="https://enterprisedna.co/omni/instead-of/ap-accurate?utm_source=github&utm_medium=readme&utm_campaign=ap-accurate">How it works</a></td>
-  </tr>
-</table>
+## What it does
 
-<p align="center">
-  <a href="#what-is-this">What is this</a> &bull;
-  <a href="#why-no-front-end">Why no front end</a> &bull;
-  <a href="#quick-start">Quick start</a> &bull;
-  <a href="#the-commands">Commands</a> &bull;
-  <a href="#instead-of-ap-accurate">Instead of AP Accurate</a> &bull;
-  <a href="#want-it-installed-and-run-for-you">Installed for you</a> &bull;
-  <a href="#license">License</a>
-</p>
+Match a supplier's open-item statement to an accounting ledger snapshot at the same date. Find missing credits, amount differences, repeated references and items that occur on only one side. Preserve the source CSVs, record explanations with evidence references, and assemble a review pack. It works for wholesalers, manufacturers and finance teams handling supplier discrepancies.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Node-20+-339933?style=flat-square" alt="Node 20+" />
-  <img src="https://img.shields.io/badge/PostgreSQL-any-336791?style=flat-square" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/PGlite-embedded-3ecf8e?style=flat-square" alt="PGlite" />
-  <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="MIT License" />
-</p>
+AP Accurate publishes an indicative US$300 to US$5,000 monthly range for statement reconciliation, volume and configuration dependent. Twelve times the upper figure is US$60,000 before rebates. This is vendor list-price context, not a verified customer invoice or a savings promise. [Pricing checked 30 October 2026](https://360-ap.com/pricing).
 
----
-
-## What is this
-
-Supplier Reconciliation for Claude Code does the job you pay AP Accurate for, as a Postgres database and a set of agent commands. There is no web front end. You open the folder in [Claude Code](https://claude.com/claude-code) (or Codex, OpenCode, Cursor: see `AGENTS.md`) and ask for what you want in plain language. It runs the right query, and it can answer questions the AP Accurate dashboard cannot.
-
-<!-- TODO(author): the annual bill. One sentence: what a 10 to 50 person business typically pays AP Accurate per year, all in, with a source. -->
-
-Want the same thing with a web front end, or built on a different stack? That is a customisation, and it is exactly what Enterprise DNA does: [book a call](https://enterprisedna.co/omni/book/?utm_source=github&utm_medium=readme&utm_campaign=ap-accurate).
-
-<!-- TODO(author): two or three sentences on what this specific product covers and who it is for. -->
-
-## Why no front end
-
-- The front end was only ever there because the database was hard to talk to. That is no longer true.
-- Your data sits in plain Postgres tables you own. Any tool can read them. No export, no lock-in.
-- No seats, no tiers, no add-ons. Read [docs/why-no-front-end.md](docs/why-no-front-end.md) for the honest trade-offs too.
+This base operates the reconciliation records desk. PDF extraction, scheduled ledger feeds, supplier portals and outbound chasing are custom installation work. It does not execute payments, post journals or replace an accounting ledger. [Scope](docs/why-no-front-end.md).
 
 ## Quick start
-
-Sixty seconds, no database install (an embedded Postgres runs inside Node):
 
 ```bash
 git clone https://github.com/Enterprise-DNA-OS/supplier-reconciliation-for-claude-code.git
 cd supplier-reconciliation-for-claude-code
 npm install
+npm test
 npm run demo
+node scripts/reconcile.mjs exceptions
+npm run view
+npm run docs
 ```
 
-Then open the folder in Claude Code and type a slash command. <!-- TODO(author): name the first command to try. -->
+Open the folder in your coding agent and ask for `/weekly-review`. The demo is synthetic. Its September 2026 snapshots deliberately contain a missing credit, two duplicate lines, a reference variation and an amount difference. The seed is idempotent. Do not seed a business database.
 
-### Use it with your own Postgres or Supabase
+For private PostgreSQL, set DATABASE_URL in your own environment and run `npm run migrate`. Leave DATABASE_URL unset for PGlite. Node 22 or later is recommended. PostgreSQL 15 or later is needed for invoker-security views. See [operations](docs/operations.md).
 
-Copy `.env.example` to `.env`, set `DATABASE_URL`, then `npm run migrate`. Same commands, shared data, no per-seat fee.
+## The weekly rituals
 
-## The commands
+- `/supplier-chase`: find missing or stale statements before month-end.
+- `/credit-chase`: find credits present on only one side.
+- `/duplicates`: identify repeated source references before matching.
+- `/reconcile`: compare one statement with its dated ledger snapshot.
+- `/weekly-review`: prepare Monday's statement, discrepancy and follow-up review.
+- `/compliance`: flag missing control totals, unassigned owners and unresolved records.
 
-<!-- TODO(author): a table of the slash commands in .claude/commands and what each one does. -->
+There are 31 workflow commands. [CLI reference](docs/cli.md) lists the operations. Every read has human output and --json. Names are case-insensitive, IDs can be shortened when unique, and ambiguous matches list candidates and exit with status 1.
 
-| Command | What it does |
-|---|---|
-| `/...` | ... |
+## Bring your AP Accurate source records
 
-## Instead of AP Accurate
+Reuse the supplier CSVs and accounting open-item extracts that feed reconciliation. AP Accurate documents CSV input but does not publish a proprietary export schema. We do not claim a direct import of its match history, approvals or attachments. Ask the vendor for those records and map them separately if required.
 
-<!-- TODO(author): how to bring data across from AP Accurate; link docs/replace-ap-accurate.md -->
+Prepare one manifest pointing to a statement CSV and a ledger CSV with the same supplier, currency and cutoff. Map your headings once. Then:
 
-## Architecture
-
-```
-supplier-reconciliation-for-claude-code/
-  CLAUDE.md                 how the operator wants this run (routing table + house rules)
-  AGENTS.md                 the same, for Codex / OpenCode / Cursor / Gemini CLI
-  .claude/commands/         the slash commands
-  scripts/                  the CLI the commands drive
-  scripts/lib/db.mjs        one adapter: DATABASE_URL (pg) or embedded PGlite
-  supabase/migrations/      plain SQL schema
-  supabase/seed.sql         demo data
-  docs/                     the thesis and the migration guide
+```bash
+node scripts/reconcile.mjs import ap-accurate examples/manifest.json --actor="Operator" --dry-run
+node scripts/reconcile.mjs import ap-accurate examples/manifest.json --actor="Operator"
+node scripts/reconcile.mjs reconcile DEMO-ST-2026-09 DEMO-GL-2026-09 --actor="Operator"
 ```
 
-## Built for coding agents
+The demo supplier exists after seeding. Create your actual supplier with `/add` in an empty business database. [Switching guide](docs/replace-ap-accurate.md) covers source scope, signed amounts and reconciliation checks. Importing a prepared pair is one command. Full history migration and production acceptance are separate work.
 
-The database, CLI and command recipes work with Claude Code, Codex, OpenCode or Cursor. Ask your coding agent for a new command and have it implement and test the change against the same records.
+## Review controls
 
-## Contributing
+Matching uses exact references without case sensitivity, within one supplier, currency and cutoff. Punctuation variations remain suggestions. Duplicates do not match automatically. Every source line appears exactly once on its own side in the reconciliation. Negative amounts represent credits.
 
-Issues and pull requests are welcome. Keep the shape: plain SQL, a small CLI, a slash command per recurring job, no front end.
+Explaining an exception records a note and evidence reference. It does not erase the discrepancy. Completing the review requires every exception to have an explanation and a reviewer different from the run and exception preparers. Recorded actor labels are not authenticated identity. The database owner can bypass application controls. Install external access controls for shared business use.
 
-## Want it installed and run for you?
+## Your documents and views
 
-Enterprise DNA installs Supplier Reconciliation for Claude Code for your business, migrates your AP Accurate data, connects it to the rest of your tools, and runs it for you as part of **Omni**, our managed Command Center. One setup fee, then a monthly retainer.
+`npm run docs` renders a reconciliation review pack for each run and supplier follow-up worksheets. `npm run view` renders weekly exceptions and source totals. Change business name, colours and logo in brand.json. Documents are escaped HTML, local and read-only. They are not payment instructions, taxable supply documents or audit opinions.
 
-- Book a call: [enterprisedna.co/omni/book](https://enterprisedna.co/omni/book/?offer=replace-software&utm_source=github&utm_medium=readme&utm_campaign=ap-accurate)
-- Read more: [enterprisedna.co/omni/instead-of/ap-accurate](https://enterprisedna.co/omni/instead-of/ap-accurate?utm_source=github&utm_medium=readme&utm_campaign=ap-accurate)
+## Ten questions answered from your records
 
-## License
+`/insights` answers these today. They demonstrate custom analysis of the records, not a claim that AP Accurate cannot build an equivalent report.
 
-MIT. Copyright (c) 2026 Enterprise DNA.
+1. Which missing credits are still unexplained?
+2. Which suppliers have old exceptions and no assigned owner?
+3. Which statement lines have amount differences by currency?
+4. Which references occur more than once in a source?
+5. Which suppliers have no recent statement?
+6. Which ledger entries are absent from the supplier statement?
+7. Which reference variations need a human check?
+8. Which unresolved exceptions are older than a month?
+9. Which completed reviews retain explained discrepancies?
+10. Which suppliers have overdue follow-ups and open exceptions?
+
+## Your first hour: ten things to ask for
+
+1. Show the statement and ledger control totals.
+2. Find the missing credit note.
+3. Explain which reference variation needs review.
+4. List duplicate references without merging them.
+5. Tell me which suppliers have no statement.
+6. Draft a supplier discrepancy note locally.
+7. Record an evidence-backed explanation for one discrepancy.
+8. Put our business name on the review pack.
+9. Add our purchasing division through `/customise`.
+10. Build a view of unresolved credits through `/new-view`.
+
+## Verification and operating limits
+
+`npm test` exercises migration and seed repeatability, exact and ambiguous matching, signed credits, balance checks, import rollback, evidence review, restricted-role access, every read command, drafts, archives and HTML escaping. The CI workflow runs Windows and Linux. Local evidence and hosted results are recorded in [verification](docs/verification.md).
+
+[Compliance checks](docs/compliance.md) are limited record checks. They do not certify legal compliance, determine GST treatment or validate that an evidence file is genuine. Keep original documents and use an accountant for tax decisions.
+
+[MIT licence](LICENSE). Independent project, not affiliated with or endorsed by AP Accurate or 360° AP.

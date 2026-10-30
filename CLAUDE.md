@@ -1,43 +1,54 @@
-# Supplier Reconciliation for Claude Code: operating instructions
+# Supplier Reconciliation for Claude Code
 
-This file is the brain. Claude Code reads it at the start of every session. It says who this is for, how work gets done, and the one right way to do each recurring job.
+Operate a private supplier reconciliation desk for one business. Read the command result before answering. Claude Code, Codex, OpenCode and Cursor use the same scripts and workflow recipes.
 
-## Who this is for
+## Rules
 
-- **Business:** [YOUR BUSINESS]
-- **Operator:** [YOUR NAME], [your role]
-- **What matters most:** [the one or two outcomes you care about]
+- Every conclusion names the supplier, currency and snapshot cutoff. An old open-item snapshot is not current payment status.
+- Never pay, post to an accounting system, send, delete or publish. Drafts stay local. Do not collect bank details.
+- Never invent source amounts, evidence, balances or approvals. Source snapshots and explanations are append-only. Revised source data gets a new batch key and a new run.
+- Actor names are declared labels, not authenticated signatures. The trusted database owner can bypass these controls. Shared production use requires external authentication, authorisation and independent approval controls.
+- Exact references can match only one-to-one within the same supplier, currency and cutoff. Near matches and duplicates require human review. A reviewed run may still contain explained discrepancies.
+- Retain original documents, source CSVs, matching history, backups and accounting records. The archive includes source CSV text but not files referenced in evidence notes. Keep those files separately and test restoration.
+- Keep real data, exports, reports and credentials out of Git. Use one private database per business, not one multi-tenant instance.
+- Run npm test before a change to logic. Use additive migrations and never rewrite source history. Do not answer from memory.
 
-Fill this in once. A worker with context knows. A worker without it guesses.
+## Routing
 
-## How to work
+- `README`: .claude/commands/README.md.
+- `add`: .claude/commands/add.md.
+- `attention`: .claude/commands/attention.md.
+- `balances`: .claude/commands/balances.md.
+- `compliance`: .claude/commands/compliance.md.
+- `credit-chase`: .claude/commands/credit-chase.md.
+- `customise`: .claude/commands/customise.md.
+- `documents`: .claude/commands/documents.md.
+- `draft-supplier`: .claude/commands/draft-supplier.md.
+- `duplicates`: .claude/commands/duplicates.md.
+- `exceptions`: .claude/commands/exceptions.md.
+- `export`: .claude/commands/export.md.
+- `follow-ups`: .claude/commands/follow-ups.md.
+- `history`: .claude/commands/history.md.
+- `import`: .claude/commands/import.md.
+- `insights`: .claude/commands/insights.md.
+- `ledger`: .claude/commands/ledger.md.
+- `log`: .claude/commands/log.md.
+- `month-end`: .claude/commands/month-end.md.
+- `new-view`: .claude/commands/new-view.md.
+- `reconcile`: .claude/commands/reconcile.md.
+- `resolve`: .claude/commands/resolve.md.
+- `review`: .claude/commands/review.md.
+- `run`: .claude/commands/run.md.
+- `runs`: .claude/commands/runs.md.
+- `statements`: .claude/commands/statements.md.
+- `supplier`: .claude/commands/supplier.md.
+- `supplier-chase`: .claude/commands/supplier-chase.md.
+- `suppliers`: .claude/commands/suppliers.md.
+- `view`: .claude/commands/view.md.
+- `weekly-review`: .claude/commands/weekly-review.md.
 
-1. **Take a brief, not a script.** The operator describes the outcome. You run the right command and present the answer.
-2. **Read before you write.** Before drafting anything about a record, read its full history first.
-3. **Plain language.** Short sentences. No filler. Numbers in tables.
-4. **Silent success, loud problems.** No play-by-play. Say what broke and what you did about it.
-5. **Stop at the line.** Anything that sends, deletes, or faces a customer waits for a yes in this session.
+## Files
 
-## Routing table: one right way for each recurring job
+scripts/reconcile.mjs is the CLI. scripts/lib/domain.mjs holds import and matching rules. supabase/migrations contains portable PostgreSQL migrations. DATABASE_URL selects PostgreSQL. Otherwise PGlite persists under .data/db. brand.json, views.json and documents.json control the static reports. No web API exists.
 
-| When the operator asks for... | Use this |
-|---|---|
-| <!-- TODO(author): one row per slash command --> | `/...` |
-
-If an ask fits nothing here, run the CLI directly (`npm run <cli> -- --help`) and then propose a new command for it.
-
-## Hard rules
-
-- Never send email or messages from here. Draft to `drafts/`, a person sends.
-- Never delete records without an explicit yes in this session. Prefer marking closed or archived.
-- Never invent a record. If a name is ambiguous, list the candidates and ask.
-- The database is the source of truth. If the answer is not in it, say so.
-
-## Where things live
-
-- `scripts/` the CLI. `scripts/lib/db.mjs` picks `DATABASE_URL` (Postgres, Supabase) or the embedded database in `.data/`.
-- `supabase/migrations/` the schema, plain SQL. `npm run migrate` applies it.
-- `.claude/commands/` the slash commands. Add one every time the same ask comes twice.
-- `docs/` the thesis and the guide for moving off AP Accurate.
-
-Built by Enterprise DNA. Installed and run for you as part of Omni: https://enterprisedna.co/omni/instead-of/ap-accurate
+Omni by Enterprise DNA installs, customises and runs this desk: https://enterprisedna.co/omni/book/?offer=replace-software&utm_campaign=ap-accurate&utm_medium=readme

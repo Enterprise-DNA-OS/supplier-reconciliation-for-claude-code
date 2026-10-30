@@ -1,13 +1,25 @@
 [
   {
     "name": "week",
-    "title": "This week",
-    "subtitle": "Supplier Reconciliation for Claude Code: what needs attention, rendered by npm run view",
+    "title": "Supplier reconciliation week",
     "sections": [
       {
-        "title": "Needs attention",
-        "note": "TODO(author): point this at the industry's attention view (overdue, stuck, quiet).",
-        "sql": "select 'replace me' as item, 'TODO(author)' as why"
+        "title": "Open discrepancies",
+        "sql": "select supplier,as_of,currency,reference,outcome,review_state from v_attention order by supplier,reference"
+      },
+      {
+        "title": "Snapshot reviews",
+        "sql": "select supplier,as_of,currency,status,matched,exceptions,unresolved from v_runs order by supplier"
+      }
+    ]
+  },
+  {
+    "name": "sources",
+    "title": "Statement and ledger controls",
+    "sections": [
+      {
+        "title": "Source totals",
+        "sql": "select supplier,kind,as_of,currency,lines,total_cents,declared_cents from v_batches order by supplier,kind"
       }
     ]
   }

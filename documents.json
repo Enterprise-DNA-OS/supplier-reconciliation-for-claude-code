@@ -1,11 +1,39 @@
 [
   {
-    "name": "example",
-    "title": "TODO(author): the first document this industry must produce",
-    "for_each": "select gen_random_uuid() as id, 'Example' as name",
+    "name": "reconciliation-pack",
+    "title": "Supplier reconciliation review pack",
+    "for_each": "select r.id,s.name from runs r join batches b on b.id=r.statement_id join suppliers s on s.id=b.supplier_id",
     "file": "name",
     "sections": [
-      { "title": "Details", "sql": "select 'replace me' as item, $1::text as record_id" }
+      {
+        "title": "Review control",
+        "sql": "select supplier,as_of,currency,status,matched,exceptions,unresolved,actor,reviewer from v_runs where id=$1",
+        "layout": "record"
+      },
+      {
+        "title": "Source totals",
+        "sql": "select kind,as_of,currency,lines,total_cents,declared_cents from v_batches where id in (select statement_id from runs where id=$1 union all select ledger_id from runs where id=$1)"
+      },
+      {
+        "title": "Line reconciliation",
+        "sql": "select reference,outcome,statement_cents,ledger_cents,detail from findings where run_id=$1 order by reference"
+      },
+      {
+        "title": "Evidence and explanations",
+        "sql": "select f.reference,x.actor,x.note,x.evidence from resolutions x join findings f on f.id=x.finding_id where f.run_id=$1"
+      }
+    ]
+  },
+  {
+    "name": "supplier-follow-up",
+    "title": "Supplier follow-up worksheet",
+    "for_each": "select id,name from suppliers",
+    "file": "name",
+    "sections": [
+      {
+        "title": "Follow-ups",
+        "sql": "select actor,note,due_date from notes where supplier_id=$1 order by due_date"
+      }
     ]
   }
 ]

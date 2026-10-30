@@ -1,0 +1,66 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync,readFileSync,writeFileSync,readdirSync} from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {getDb,REPO_ROOT} from './lib/db.mjs';
+import {migrate} from './migrate.mjs';
+import {seed} from './seed.mjs';
+import {run,reads,insightSpecs,cents,date,resolve} from './lib/domain.mjs';
+import {parseCsv} from './lib/csv.mjs';
+const root=mkdtempSync(path.join(os.tmpdir(),'supplier-reconciliation-'));
+process.env.DATA_DIR=path.join(root,'db');process.env.OUTPUT_DIR=path.join(root,'out');process.env.DATABASE_URL=process.env.TEST_DATABASE_URL||'';
+let db,n=0;
+const ok=(v,m)=>{assert.ok(v,m);n++;};const equal=(a,b)=>{assert.deepEqual(a,b);n++;};const fails=async(fn,re)=>{await assert.rejects(fn,re);n++;};
+const f={actor:'Test operator'};
+const call=(cmd,args=[],flags={})=>run(db,cmd,args,flags);
+const fixture=(suffix,overrides={})=>{const m=JSON.parse(readFileSync(path.join(REPO_ROOT,'examples/manifest.json')));for(const k of ['statement','ledger']){m[k].file=path.join(REPO_ROOT,'examples',m[k].file);m[k].key+=suffix;}Object.assign(m,overrides);const file=path.join(root,`${suffix.replace(/\W/g,'')}.json`);writeFileSync(file,JSON.stringify(m));return {m,file,save:()=>writeFileSync(file,JSON.stringify(m))};};
+const cli=(file,args=[],status=0)=>{const r=spawnSync(process.execPath,[file,...args],{cwd:REPO_ROOT,env:process.env,encoding:'utf8'});equal(r.status,status);if(status===0)ok(!r.error,r.stderr);return r.stdout+r.stderr;};
+try{
+ db=await getDb();equal((await migrate(db)).ran.length,1);equal((await migrate(db)).ran.length,0);
+ await seed(db);const counts=await db.query('select (select count(*) from entries)::int entries,(select count(*) from runs)::int runs');await seed(db);equal(await db.query('select (select count(*) from entries)::int entries,(select count(*) from runs)::int runs'),counts);equal(counts[0],{entries:11,runs:1});
+ for(const cmd of Object.keys(reads)){ok(Array.isArray(await call(cmd)),cmd);}
+ equal((await call('insights')).length,10);equal(insightSpecs.length,10);
+ const summary=(await call('runs'))[0];equal(summary.matched,1);equal(summary.exceptions,8);equal(summary.unresolved,8);
+ const detail=await call('run',[summary.id]);equal(detail.findings.length,9);equal(detail.findings.filter(x=>x.outcome==='near-match').length,1);equal(detail.findings.filter(x=>x.outcome==='ambiguous').length,2);
+ // Every source entry occurs once on its own side. A ledger row is never consumed twice.
+ const le=detail.findings.map(x=>x.ledger_entry).filter(Boolean),se=detail.findings.map(x=>x.statement_entry).filter(Boolean);equal(new Set(le).size,5);equal(le.length,5);equal(new Set(se).size,6);equal(se.length,6);
+ ok((await call('credit-chase')).some(x=>x.reference==='CN-33'));ok((await call('compliance')).some(x=>x.rule==='OWNER'));
+ equal((await call('supplier',['harbour'])).supplier.code,'HARBOUR');await fails(()=>resolve(db,'suppliers','packaging'),/Ambiguous/);await fails(()=>resolve(db,'suppliers','absent'),/No suppliers/);
+ equal((await resolve(db,'suppliers','10000000-0000-4000-8000-000000000003')).code,'SOUTH');
+ equal(cents('-115.25'),-11525);equal(cents('0.01'),1);for(const bad of ['1,000','1e3','1.001','NaN','900719925474099.99'])assert.throws(()=>cents(bad));n+=5;assert.throws(()=>date('2026-02-30'));n++;equal(date('2024-02-29'),'2024-02-29');
+ equal(parseCsv('\ufeffA,B\r\n"hello\nthere","a""b"\r\n')[0],{A:'hello\nthere',B:'a"b'});assert.throws(()=>parseCsv('A,A\n1,2'));n++;assert.throws(()=>parseCsv('A,B\n1'));n++;
+ const repeated=await call('import',['ap-accurate',path.join(REPO_ROOT,'examples/manifest.json')],f);ok(repeated.every(x=>x.action==='skipped'));
+ const dry=fixture('-dry');await call('import',['ap-accurate',dry.file],{...f,'dry-run':true});equal((await db.query("select id from batches where source_key like '%-dry'")).length,0);
+ const bad=fixture('-bad');bad.m.ledger.balance='0';bad.save();await fails(()=>call('import',['ap-accurate',bad.file],f),/declared balance/);equal((await db.query("select id from batches where source_key like '%-bad'")).length,0);
+ // Conflict on the second batch rolls back a newly inserted first batch.
+ const conflict=fixture('-rollback');conflict.m.ledger.key='DEMO-GL-2026-09';delete conflict.m.ledger.balance;conflict.save();await fails(()=>call('import',['ap-accurate',conflict.file],f),/Conflicting batch/);equal((await db.query("select id from batches where source_key like '%-rollback'")).length,0);
+ const cross=fixture('-currency');cross.m.ledger.currency='AUD';cross.save();await fails(()=>call('import',['ap-accurate',cross.file],f),/same cutoff and currency/);
+ const future=fixture('-future');future.m.statement.as_of='2026-08-30';future.save();await fails(()=>call('import',['ap-accurate',future.file],f),/after snapshot cutoff/);
+ const unknown=fixture('-unknown');unknown.m.statement.silent='bad';unknown.save();await fails(()=>call('import',['ap-accurate',unknown.file],f),/Unknown field/);
+ const mapped=fixture('-mapped');const csv=path.join(root,'mapped.csv');writeFileSync(csv,'Doc,When,Value\nM1,2026-09-01,-12.34\n');for(const k of ['statement','ledger']){mapped.m[k].file=csv;mapped.m[k].map={reference:'Doc',document_date:'When',amount:'Value'};mapped.m[k].balance='-12.34';}mapped.save();await call('import',['ap-accurate',mapped.file],f);const mr=(await call('reconcile',[mapped.m.statement.key,mapped.m.ledger.key],f))[0];equal(mr.matched,1);equal(mr.exceptions,0);
+ await fails(()=>call('reconcile',[mapped.m.statement.key,'DEMO-GL-2026-09'],{}),/actor/);
+ await fails(()=>call('review',[summary.id],{actor:'Demo operator',evidence:'checked'}),/different reviewer/);
+ await fails(()=>call('review',[summary.id],{actor:'Reviewer',evidence:'checked'}),/unexplained/);
+ await fails(()=>call('resolve',[detail.findings.find(x=>x.outcome==='matched').id],{...f,note:'x',evidence:'y'}),/open exceptions/);
+ for(const x of detail.findings.filter(x=>x.outcome!=='matched'))await call('resolve',[x.id],{...f,note:'Synthetic explanation, discrepancy retained',evidence:'demo/source-document'});
+ await fails(()=>call('review',[summary.id],{...f,evidence:'checked'}),/exception preparers/);
+ equal((await call('review',[summary.id],{actor:'Independent reviewer',evidence:'demo/review-pack'}))[0].status,'reviewed');
+ equal((await call('run',[summary.id])).run.exceptions,8);await fails(()=>call('review',[summary.id],{actor:'Other',evidence:'x'}),/open run/);
+ await call('review',[mr.id],{actor:'Other reviewer',evidence:'mapped source checked'});
+ const [newS]=await call('add',[],{...f,code:'TEST',name:'Test <script>alert(1)</script>',owner:'Taylor'});await call('log',['TEST'],{...f,note:'Follow up on source receipt',due:'2026-10-01'});await fails(()=>call('add',[],{...f,code:'test',name:'Duplicate'}),/duplicate/i);
+ const alt=fixture('-other',{supplier:'TEST'});await call('import',['ap-accurate',alt.file],f);await fails(()=>call('reconcile',[alt.m.statement.key,'DEMO-GL-2026-09'],f),/Supplier, currency and cutoff/);
+ const draft=(await call('draft-supplier',['TEST']))[0];ok(readFileSync(draft.file,'utf8').startsWith('# DRAFT'));const archive=path.join(root,'archive.json');await call('export',[],{out:archive});const data=JSON.parse(readFileSync(archive));equal(data.format,'supplier-reconciliation-v1');ok(data.tables.batches[0].raw_csv.includes('Document Number'));await fails(()=>call('export',[],{out:archive}),/EEXIST/);
+ await fails(()=>db.query('delete from entries where id=$1',[se[0]]),/immutable/);
+ await db.exec('create role reconciliation_untrusted; grant usage on schema public to reconciliation_untrusted; grant select on entries,v_attention to reconciliation_untrusted; set role reconciliation_untrusted');
+ equal((await db.query('select * from entries')).length,0);await fails(()=>db.query('select * from v_attention'),/permission denied/);await db.exec('reset role');
+ await db.close();db=null;
+ for(const cmd of Object.keys(reads))JSON.parse(cli('scripts/reconcile.mjs',[cmd,'--json']));
+ const human=cli('scripts/reconcile.mjs',['balances']);ok(human.includes('2000.00')&&/^\s*-{2,}(\s+-{2,})*\s*$/m.test(human),'Readable fixed-width table with decimal amounts');
+ cli('scripts/reconcile.mjs',['--help']);cli('scripts/reconcile.mjs',['supplier','packaging'],1);cli('scripts/reconcile.mjs',['reconcile','x','y','--dry-run'],1);cli('scripts/reconcile.mjs',['nonsense'],1);cli('scripts/reconcile.mjs',['suppliers','--bogus'],1);
+ for(const script of ['scripts/view.mjs','scripts/docs.mjs'])cli(script);
+ const html=readFileSync(path.join(root,'out/views/week.html'),'utf8');ok(html.includes('Harbour Wholesale Demo'));ok(readdirSync(path.join(root,'out/docs-out/reconciliation-pack')).length>=2);
+ const {table}=await import('./lib/render.mjs');ok(table([{name:'<script>alert(1)</script>'}]).includes('&lt;script&gt;'));
+ const pack=readFileSync(path.join(root,'out/docs-out/supplier-follow-up',readdirSync(path.join(root,'out/docs-out/supplier-follow-up')).find(x=>x.includes(newS.id))),'utf8');ok(pack.includes('&lt;script&gt;'));
+ console.log(`PASS: ${n} checks (${process.env.TEST_DATABASE_URL?'PostgreSQL':'PGlite'}). Source integrity, matching, ambiguity, credits, import rollback, review controls, RLS, CLI, drafts, archives and HTML.`);
+}finally{await db?.close();rmSync(root,{recursive:true,force:true});}

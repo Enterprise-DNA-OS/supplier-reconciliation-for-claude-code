@@ -1,0 +1,17 @@
+{
+  "supplier": "HARBOUR",
+  "statement": {
+    "file": "statement.csv",
+    "key": "DEMO-ST-2026-09",
+    "as_of": "2026-09-30",
+    "currency": "NZD",
+    "balance": "2000.00"
+  },
+  "ledger": {
+    "file": "ledger.csv",
+    "key": "DEMO-GL-2026-09",
+    "as_of": "2026-09-30",
+    "currency": "NZD",
+    "balance": "2365.00"
+  }
+}
